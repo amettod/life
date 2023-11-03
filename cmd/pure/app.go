@@ -7,11 +7,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/amettod/life/game"
-	"github.com/amettod/life/parse"
-	"github.com/amettod/life/preset"
-	"github.com/amettod/life/term"
-	"github.com/amettod/life/theme"
+	"github.com/amettod/life/internal/game"
+	"github.com/amettod/life/internal/parse"
+	"github.com/amettod/life/internal/preset"
+	"github.com/amettod/life/internal/term"
+	"github.com/amettod/life/internal/theme"
 )
 
 const (
@@ -30,7 +30,7 @@ type app struct {
 	info []string
 }
 
-func newApp(w, h int, file string, p time.Duration) (*app, error) {
+func newApp(w, h int, file string, d time.Duration) (*app, error) {
 	g := game.New(w, h)
 	if file != "" {
 		s, err := parse.File(file)
@@ -40,21 +40,21 @@ func newApp(w, h int, file string, p time.Duration) (*app, error) {
 		g.SetState(0, 0, s)
 	}
 
-	pr := preset.New()
-	fse, err := parse.FilesEmbed(preset.EmbedFS, preset.EmbedDir)
+	p := preset.New()
+	states, err := parse.FilesEmbed(preset.EmbedFS, preset.EmbedDir)
 	if err != nil {
 		return nil, err
 	}
-	for k, v := range fse {
-		pr.Append(k, v)
+	for name, state := range states {
+		p.Append(name, state)
 	}
 
 	return &app{
 		game:   g,
-		preset: pr,
+		preset: p,
 		term:   term.New(os.Stdout),
 		theme:  theme.New(),
-		period: p,
+		period: d,
 		info:   make([]string, h),
 	}, err
 }
