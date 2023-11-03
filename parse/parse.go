@@ -188,3 +188,23 @@ func FileEmbed(fs embed.FS, name string) ([][]int, error) {
 	defer f.Close()
 	return parse(f, name)
 }
+
+func FilesEmbed(fs embed.FS, dir string) (map[string][][]int, error) {
+	res := map[string][][]int{}
+	files, err := fs.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+	for _, f := range files {
+		if !f.IsDir() {
+			s, err := FileEmbed(fs, path.Join(dir, f.Name()))
+			if err != nil {
+				return nil, err
+			}
+
+			name := strings.TrimSuffix(f.Name(), path.Ext(f.Name()))
+			res[name] = s
+		}
+	}
+	return res, nil
+}

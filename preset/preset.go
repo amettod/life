@@ -2,16 +2,13 @@ package preset
 
 import (
 	"embed"
-	"life/parse"
-	"path"
 	"sort"
-	"strings"
 )
 
 //go:embed presets/*
-var embedFS embed.FS
+var EmbedFS embed.FS
 
-const embedDir = "presets"
+const EmbedDir = "presets"
 
 type Preset interface {
 	// Append preset.
@@ -34,7 +31,7 @@ type presets struct {
 	store   []preset
 }
 
-func New() (Preset, error) {
+func New() Preset {
 	p := &presets{
 		store: []preset{
 			{
@@ -75,30 +72,8 @@ func New() (Preset, error) {
 			},
 		},
 	}
-	if err := p.load(); err != nil {
-		return nil, err
-	}
 	p.sort()
-	return p, nil
-}
-
-func (p *presets) load() error {
-	files, err := embedFS.ReadDir(embedDir)
-	if err != nil {
-		return err
-	}
-	for _, f := range files {
-		if !f.IsDir() {
-			s, err := parse.FileEmbed(embedFS, path.Join(embedDir, f.Name()))
-			if err != nil {
-				return err
-			}
-
-			name := strings.TrimSuffix(f.Name(), path.Ext(f.Name()))
-			p.store = append(p.store, preset{name: name, state: s})
-		}
-	}
-	return nil
+	return p
 }
 
 func (p *presets) sort() {
@@ -112,6 +87,7 @@ func (p *presets) Append(name string, state [][]int) {
 		name:  name,
 		state: state,
 	})
+	p.sort()
 }
 
 func (p *presets) Name() string {

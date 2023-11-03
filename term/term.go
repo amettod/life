@@ -6,10 +6,14 @@ import (
 	"strings"
 )
 
+type rgb interface {
+	Color() (uint8, uint8, uint8)
+}
+
 type Term interface {
 	SetCell(background rgb, r rune)
 	SetInfo(background, foreground rgb, b byte)
-	Setln()
+	SetLn()
 	Print()
 }
 
@@ -56,10 +60,6 @@ func (t *term) clear() {
 	}
 }
 
-type rgb interface {
-	Color() (uint8, uint8, uint8)
-}
-
 func (t *term) SetInfo(background, foreground rgb, b byte) {
 	fmt.Fprint(
 		&t.s,
@@ -79,7 +79,7 @@ func (t *term) SetCell(background rgb, r rune) {
 	)
 }
 
-func (t *term) Setln() {
+func (t *term) SetLn() {
 	fmt.Fprintln(&t.s)
 }
 

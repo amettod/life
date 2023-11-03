@@ -2,36 +2,40 @@ package theme
 
 import "sort"
 
+type RGB interface {
+	Color() (uint8, uint8, uint8)
+}
+
 type Theme interface {
 	// Append theme.
 	Append(name string, background RGB, foreground RGB, alive []RGB, dead []RGB)
 	// Background color.
-	Background() (uint8, uint8, uint8)
+	Background() RGB
 	// Foreground color.
-	Foreground() (uint8, uint8, uint8)
+	Foreground() RGB
 	// Color return depending on cycle.
-	Color(cycle int) (uint8, uint8, uint8)
+	Color(cycle int) RGB
 	// Name theme.
 	Name() string
 	// Next theme.
 	Next()
 }
 
-type RGB struct {
+type rgb struct {
 	r uint8
 	g uint8
 	b uint8
 }
 
 func NewRGB(r, g, b uint8) RGB {
-	return RGB{
+	return rgb{
 		r: r,
 		g: g,
 		b: b,
 	}
 }
 
-func (c RGB) color() (uint8, uint8, uint8) {
+func (c rgb) Color() (uint8, uint8, uint8) {
 	return c.r, c.g, c.b
 }
 
@@ -214,22 +218,22 @@ func (t *themes) sort() {
 	})
 }
 
-func (t *themes) alive(cycle int) (uint8, uint8, uint8) {
+func (t *themes) alive(cycle int) RGB {
 	c := cycle - 1
 	l := len(t.theme().alive)
 	if c < l {
-		return t.theme().alive[c].color()
+		return t.theme().alive[c]
 	}
-	return t.theme().alive[l-1].color()
+	return t.theme().alive[l-1]
 }
 
-func (t *themes) dead(cycle int) (uint8, uint8, uint8) {
+func (t *themes) dead(cycle int) RGB {
 	c := cycle*-1 - 1
 	l := len(t.theme().dead)
 	if c < l {
-		return t.theme().dead[c].color()
+		return t.theme().dead[c]
 	}
-	return t.theme().background.color()
+	return t.theme().background
 }
 
 func (t *themes) Append(name string, background RGB, foreground RGB, alive []RGB, dead []RGB) {
@@ -243,15 +247,15 @@ func (t *themes) Append(name string, background RGB, foreground RGB, alive []RGB
 	t.sort()
 }
 
-func (t *themes) Background() (uint8, uint8, uint8) {
-	return t.theme().background.color()
+func (t *themes) Background() RGB {
+	return t.theme().background
 }
 
-func (t *themes) Foreground() (uint8, uint8, uint8) {
-	return t.theme().foreground.color()
+func (t *themes) Foreground() RGB {
+	return t.theme().foreground
 }
 
-func (t *themes) Color(cycle int) (uint8, uint8, uint8) {
+func (t *themes) Color(cycle int) RGB {
 	switch {
 	case cycle > 0:
 		return t.alive(cycle)
