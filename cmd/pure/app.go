@@ -7,11 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/amettod/life/internal/game"
-	"github.com/amettod/life/internal/parse"
-	"github.com/amettod/life/internal/preset"
-	"github.com/amettod/life/internal/term"
-	"github.com/amettod/life/internal/theme"
+	"github.com/amettod/life"
+	"github.com/amettod/life/term"
 )
 
 const (
@@ -20,60 +17,32 @@ const (
 )
 
 type app struct {
-	game   game.Game
-	preset preset.Preset
-	term   term.Term
-	theme  theme.Theme
+	*life.App
+
+	term term.Term
 
 	period time.Duration
-
-	info []string
+	info   []string
 }
 
 func newApp(w, h int, file string, d time.Duration) (*app, error) {
-	g := game.New(w, h)
-	if file != "" {
-		s, err := parse.File(file)
-		if err != nil {
-			return nil, err
-		}
-		g.SetState(0, 0, s)
-	}
-
-	p := preset.New()
-	states, err := parse.FilesEmbed(preset.EmbedFS, preset.EmbedDir)
+	a, err := life.NewApp(w, h, file)
 	if err != nil {
 		return nil, err
 	}
-	for name, state := range states {
-		p.Append(name, state)
-	}
 
 	return &app{
-		game:   g,
-		preset: p,
+		App:    a,
 		term:   term.New(os.Stdout),
-		theme:  theme.New(),
 		period: d,
 		info:   make([]string, h),
-	}, err
+	}, nil
 }
 
-func (a *app) height() int {
-	return len(a.game.State())
-}
-
-func (a *app) width() int {
-	if a.height() > 0 {
-		return len(a.game.State()[0])
-	}
-	return 0
-}
-
-func (a *app) addInfo(x, y int, msg string) {
-	if y < a.height() {
+func (a *app) setInfo(x, y int, msg string) {
+	if y < a.Game.Height() {
 		s := fmt.Sprint(strings.Repeat(unitHide, x), msg)
-		if w := a.width() * len(unitCell); len(s) > w {
+		if w := a.Game.Width() * len(unitCell); len(s) > w {
 			s = fmt.Sprint(s[:w-3], "...")
 		}
 		a.info[y] = s
@@ -81,27 +50,28 @@ func (a *app) addInfo(x, y int, msg string) {
 }
 
 func (a *app) show() {
-	for y := range a.game.State() {
+	for y := range a.Game.State() {
 		x := -1
-		for _, cycle := range a.game.State()[y] {
-			for _, cell := range unitCell {
+		for _, cycle := range a.Game.State()[y] {
+			for i := 0; i < len(unitCell); i++ {
 				x++
 				if x < len(a.info[y]) && string(a.info[y][x]) != unitHide {
-					a.term.SetInfo(
-						a.theme.Background(),
-						a.theme.Foreground(),
-						a.info[y][x],
+					a.term.Write(
+						a.Theme.Background(),
+						a.Theme.Foreground(),
+						string(a.info[y][x]),
 					)
 					continue
 				}
-				a.term.SetCell(
-					a.theme.Color(cycle),
-					cell,
+				a.term.Write(
+					a.Theme.Color(cycle),
+					nil,
+					string(unitCell[i]),
 				)
 			}
 		}
 		a.info[y] = ""
-		a.term.SetLn()
+		a.term.WriteLn()
 	}
 	a.term.Print()
 }
@@ -147,37 +117,37 @@ func (a *app) doEvent(e <-chan event) {
 			case eventPause:
 				stop = !stop
 			case eventTheme:
-				a.theme.Next()
+				a.Theme.Next()
 			case eventRandom:
-				a.game.Random()
+				a.Game.Random()
 				cycle = 0
 			case eventClear:
-				a.game.Clear()
+				a.Game.Clear()
 				cycle = 0
 			case eventStep:
-				a.game.Step()
+				a.Game.Step()
 				cycle++
 			case eventSwitchPreset:
-				a.preset.Next()
+				a.Preset.Next()
 			case eventInsertPreset:
-				a.game.Clear()
-				a.game.SetState(0, 0, a.preset.State())
+				a.Game.Clear()
+				a.Game.SetState(0, 0, a.Preset.State())
 				cycle = 0
 			case eventInfo:
 				info = !info
 			}
 		case <-ticker.C:
 			if stop && info {
-				h := a.height()
-				a.addInfo(0, 0, fmt.Sprintf("Cycle: %d", cycle))
-				a.addInfo(0, h-4, "Press <key>+RET:")
-				a.addInfo(0, h-3, fmt.Sprintf("<t>: switch theme, Current: \"%s\"", a.theme.Name()))
-				a.addInfo(0, h-2, fmt.Sprintf("<p>: switch present, <i>: insert preset, Current: \"%s\"", a.preset.Name()))
-				a.addInfo(0, h-1, "<SPC>: pause, <s>: next, <c>: clear, <r>: random, <h>: hide this message")
+				h := a.Game.Height()
+				a.setInfo(0, 0, fmt.Sprintf("Cycle: %d", cycle))
+				a.setInfo(0, h-4, "Press <key>+RET:")
+				a.setInfo(0, h-3, fmt.Sprintf("<t>: switch theme, Current: \"%s\"", a.Theme.Name()))
+				a.setInfo(0, h-2, fmt.Sprintf("<p>: switch present, <i>: insert preset, Current: \"%s\"", a.Preset.Name()))
+				a.setInfo(0, h-1, "<SPC>: pause, <s>: next, <c>: clear, <r>: random, <h>: hide this message")
 			}
 
 			if !stop {
-				a.game.Step()
+				a.Game.Step()
 				cycle++
 			}
 			a.show()

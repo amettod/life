@@ -1,25 +1,16 @@
-package preset
+package life
 
 import (
 	"embed"
+	"path"
 	"sort"
+	"strings"
 )
 
 //go:embed presets/*
-var EmbedFS embed.FS
+var embedFS embed.FS
 
-const EmbedDir = "presets"
-
-type Preset interface {
-	// Append preset.
-	Append(name string, state [][]int)
-	// Name preset.
-	Name() string
-	// Next preset.
-	Next()
-	// State return current preset.
-	State() [][]int
-}
+const embedDir = "presets"
 
 type preset struct {
 	name  string
@@ -31,7 +22,7 @@ type presets struct {
 	store   []preset
 }
 
-func New() Preset {
+func newPresets() (*presets, error) {
 	p := &presets{
 		store: []preset{
 			{
@@ -72,8 +63,11 @@ func New() Preset {
 			},
 		},
 	}
+	if err := p.load(); err != nil {
+		return nil, err
+	}
 	p.sort()
-	return p
+	return p, nil
 }
 
 func (p *presets) sort() {
@@ -82,18 +76,30 @@ func (p *presets) sort() {
 	})
 }
 
-func (p *presets) Append(name string, state [][]int) {
-	p.store = append(p.store, preset{
-		name:  name,
-		state: state,
-	})
-	p.sort()
+func (p *presets) load() error {
+	files, err := embedFS.ReadDir(embedDir)
+	if err != nil {
+		return err
+	}
+	for _, f := range files {
+		if !f.IsDir() {
+			s, err := parseFileEmbed(embedFS, path.Join(embedDir, f.Name()))
+			if err != nil {
+				return err
+			}
+			name := strings.TrimSuffix(f.Name(), path.Ext(f.Name()))
+			p.store = append(p.store, preset{name: name, state: s})
+		}
+	}
+	return nil
 }
 
+// Name preset.
 func (p *presets) Name() string {
 	return p.store[p.current].name
 }
 
+// Next preset.
 func (p *presets) Next() {
 	p.current++
 	if p.current > len(p.store)-1 {
@@ -101,6 +107,7 @@ func (p *presets) Next() {
 	}
 }
 
+// State return current preset.
 func (p *presets) State() [][]int {
 	return p.store[p.current].state
 }

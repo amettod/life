@@ -1,41 +1,22 @@
-package theme
+package life
 
 import "sort"
 
-type RGB interface {
-	Color() (uint8, uint8, uint8)
-}
-
-type Theme interface {
-	// Append theme.
-	Append(name string, background RGB, foreground RGB, alive []RGB, dead []RGB)
-	// Background color.
-	Background() RGB
-	// Foreground color.
-	Foreground() RGB
-	// Color return depending on cycle.
-	Color(cycle int) RGB
-	// Name theme.
-	Name() string
-	// Next theme.
-	Next()
-}
-
-type rgb struct {
+type RGB struct {
 	r uint8
 	g uint8
 	b uint8
 }
 
 func NewRGB(r, g, b uint8) RGB {
-	return rgb{
+	return RGB{
 		r: r,
 		g: g,
 		b: b,
 	}
 }
 
-func (c rgb) Color() (uint8, uint8, uint8) {
+func (c RGB) Color() (uint8, uint8, uint8) {
 	return c.r, c.g, c.b
 }
 
@@ -52,7 +33,7 @@ type themes struct {
 	store   []theme
 }
 
-func New() Theme {
+func newThemes() *themes {
 	t := &themes{
 		current: 0,
 		store: []theme{
@@ -236,25 +217,17 @@ func (t *themes) dead(cycle int) RGB {
 	return t.theme().background
 }
 
-func (t *themes) Append(name string, background RGB, foreground RGB, alive []RGB, dead []RGB) {
-	t.store = append(t.store, theme{
-		name:       name,
-		background: background,
-		foreground: foreground,
-		alive:      alive,
-		dead:       dead,
-	})
-	t.sort()
-}
-
+// Background color.
 func (t *themes) Background() RGB {
 	return t.theme().background
 }
 
+// Foreground color.
 func (t *themes) Foreground() RGB {
 	return t.theme().foreground
 }
 
+// Color return depending on cycle.
 func (t *themes) Color(cycle int) RGB {
 	switch {
 	case cycle > 0:
@@ -266,10 +239,12 @@ func (t *themes) Color(cycle int) RGB {
 	}
 }
 
+// Name theme.
 func (t *themes) Name() string {
 	return t.theme().name
 }
 
+// Next theme.
 func (t *themes) Next() {
 	t.current++
 	if t.current > len(t.store)-1 {

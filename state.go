@@ -1,4 +1,4 @@
-package game
+package life
 
 import "math"
 

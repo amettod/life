@@ -1,4 +1,4 @@
-package parse
+package life
 
 import (
 	"bufio"
@@ -26,7 +26,7 @@ func rle(r io.Reader) (int, int, [][]int, error) {
 		if strings.HasPrefix(line, "x") {
 			_, err := fmt.Sscanf(line, "x = %d, y = %d,", &x, &y)
 			if err != nil {
-				return 0, 0, nil, fmt.Errorf("parse: %w", err)
+				return 0, 0, nil, fmt.Errorf("parse rle: %w", err)
 			}
 			continue
 		}
@@ -39,7 +39,7 @@ func rle(r io.Reader) (int, int, [][]int, error) {
 			if len(digits) > 0 {
 				c, err := strconv.Atoi(digits)
 				if err != nil {
-					return 0, 0, nil, fmt.Errorf("parse: %w", err)
+					return 0, 0, nil, fmt.Errorf("parse rle: %w", err)
 				}
 				count = c
 				digits = ""
@@ -74,7 +74,7 @@ func rle(r io.Reader) (int, int, [][]int, error) {
 		}
 	}
 	if err := scan.Err(); err != nil {
-		return 0, 0, nil, fmt.Errorf("parse: %w", err)
+		return 0, 0, nil, fmt.Errorf("parse rle: %w", err)
 	}
 	return x, y, state, nil
 }
@@ -100,7 +100,7 @@ func cells(r io.Reader) ([][]int, error) {
 		state = append(state, row)
 	}
 	if err := scan.Err(); err != nil {
-		return nil, fmt.Errorf("parse: %w", err)
+		return nil, fmt.Errorf("parse cells: %w", err)
 	}
 	return state, nil
 }
@@ -145,7 +145,7 @@ func life(r io.Reader) ([][]int, error) {
 		points = append(points, p)
 	}
 	if err := scan.Err(); err != nil {
-		return nil, fmt.Errorf("parse: %w", err)
+		return nil, fmt.Errorf("parse life: %w", err)
 	}
 	state := make([][]int, maxP.y-minP.y+1)
 	for i := range state {
@@ -171,40 +171,20 @@ func parse(r io.Reader, name string) ([][]int, error) {
 	}
 }
 
-func File(name string) ([][]int, error) {
+func parseFile(name string) ([][]int, error) {
 	f, err := os.Open(name)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("open file: %w", err)
 	}
 	defer f.Close()
 	return parse(f, name)
 }
 
-func FileEmbed(fs embed.FS, name string) ([][]int, error) {
+func parseFileEmbed(fs embed.FS, name string) ([][]int, error) {
 	f, err := fs.Open(name)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("open embed file: %w", err)
 	}
 	defer f.Close()
 	return parse(f, name)
-}
-
-func FilesEmbed(fs embed.FS, dir string) (map[string][][]int, error) {
-	res := map[string][][]int{}
-	files, err := fs.ReadDir(dir)
-	if err != nil {
-		return nil, err
-	}
-	for _, f := range files {
-		if !f.IsDir() {
-			s, err := FileEmbed(fs, path.Join(dir, f.Name()))
-			if err != nil {
-				return nil, err
-			}
-
-			name := strings.TrimSuffix(f.Name(), path.Ext(f.Name()))
-			res[name] = s
-		}
-	}
-	return res, nil
 }

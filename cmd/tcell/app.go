@@ -5,18 +5,13 @@ import (
 	"os"
 	"time"
 
-	"github.com/amettod/life/internal/game"
-	"github.com/amettod/life/internal/parse"
-	"github.com/amettod/life/internal/preset"
-	"github.com/amettod/life/internal/theme"
+	"github.com/amettod/life"
 	"github.com/gdamore/tcell/v2"
 	_ "github.com/gdamore/tcell/v2/encoding"
 )
 
 type app struct {
-	game   game.Game
-	preset preset.Preset
-	theme  theme.Theme
+	*life.App
 
 	screen tcell.Screen
 
@@ -29,51 +24,35 @@ func newApp(file string, d time.Duration, rate int) (*app, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	if err := s.Init(); err != nil {
 		return nil, err
 	}
-	t := theme.New()
-	sd := tcell.StyleDefault.
-		Background(toTcellColor(t.Background())).
-		Foreground(toTcellColor(t.Foreground()))
-	s.SetStyle(sd)
-	s.EnableMouse()
 
 	w, h := s.Size()
-	g := game.New(w/rate, h)
-	if file != "" {
-		s, err := parse.File(file)
-		if err != nil {
-			return nil, err
-		}
-		g.SetState(0, 0, s)
-	}
-
-	p := preset.New()
-	states, err := parse.FilesEmbed(preset.EmbedFS, preset.EmbedDir)
+	a, err := life.NewApp(w/rate, h, file)
 	if err != nil {
 		return nil, err
 	}
-	for name, state := range states {
-		p.Append(name, state)
-	}
+
+	sd := tcell.StyleDefault.
+		Background(rgbTo(a.Theme.Background())).
+		Foreground(rgbTo(a.Theme.Foreground()))
+	s.SetStyle(sd)
+	s.EnableMouse()
 
 	return &app{
-		game:   g,
-		preset: p,
-		theme:  t,
-
+		App:    a,
 		screen: s,
-
 		period: d,
 		rate:   rate,
 	}, nil
 }
 
-func (a *app) info(x, y int, msg string) {
+func (a *app) setInfo(x, y int, msg string) {
 	sd := tcell.StyleDefault.
-		Background(toTcellColor(a.theme.Background())).
-		Foreground(toTcellColor(a.theme.Foreground()))
+		Background(rgbTo(a.Theme.Background())).
+		Foreground(rgbTo(a.Theme.Foreground()))
 	for i, r := range msg {
 		a.screen.SetContent(x+i, y, r, nil, sd)
 	}
@@ -124,39 +103,39 @@ func (a *app) doEvent(e <-chan event, p <-chan eventPoint) {
 	cycle := 0
 	stop := true
 	info := true
-	theme := a.theme
+	theme := a.Theme
 	for {
-		a.theme = theme
+		a.Theme = theme
 		a.screen.Clear()
-		for y, row := range a.game.State() {
+		for y, row := range a.Game.State() {
 			for x, cycle := range row {
 				a.screen.SetContent(x*a.rate, y, ' ', nil, tcell.StyleDefault.
-					Background(toTcellColor(a.theme.Color(cycle))))
+					Background(rgbTo(a.Theme.Color(cycle))))
 				a.screen.SetContent(x*a.rate+1, y, ' ', nil, tcell.StyleDefault.
-					Background(toTcellColor(a.theme.Color(cycle))))
+					Background(rgbTo(a.Theme.Color(cycle))))
 			}
 		}
 		select {
 		case ev := <-e:
 			switch ev {
 			case eventRandom:
-				a.game.Random()
+				a.Game.Random()
 				cycle = 0
 			case eventPause:
 				stop = !stop
 			case eventResize:
 				w, h := a.screen.Size()
-				a.game.Resize(w/a.rate, h)
+				a.Game.Resize(w/a.rate, h)
 			case eventStep:
 				cycle++
-				a.game.Step()
+				a.Game.Step()
 				a.screen.Show()
 			case eventQuit:
 				ticker.Stop()
 				a.screen.Fini()
 				os.Exit(0)
 			case eventClear:
-				a.game.Clear()
+				a.Game.Clear()
 				cycle = 0
 				a.screen.Show()
 			case eventInfo:
@@ -164,34 +143,34 @@ func (a *app) doEvent(e <-chan event, p <-chan eventPoint) {
 			case eventTheme:
 				theme.Next()
 			case eventPreset:
-				a.preset.Next()
+				a.Preset.Next()
 			}
 		case ep := <-p:
 			switch ep.e {
 			case eventShift:
-				a.game.Shift(ep.x/a.rate, ep.y)
+				a.Game.Shift(ep.x/a.rate, ep.y)
 			case eventInsert:
-				a.game.SetState(ep.x/a.rate, ep.y, a.preset.State())
+				a.Game.SetState(ep.x/a.rate, ep.y, a.Preset.State())
 			}
 		case <-ticker.C:
 			if !stop {
 				cycle++
-				a.game.Step()
+				a.Game.Step()
 			}
 			if stop && info {
 				_, h := a.screen.Size()
-				a.info(0, 0, fmt.Sprintf("Cycle: %d", cycle))
-				a.info(0, h-4, fmt.Sprintf("t: switch theme, Current: \"%s\"", a.theme.Name()))
-				a.info(0, h-3, fmt.Sprintf("p: switch present, Current: \"%s\"", a.preset.Name()))
-				a.info(0, h-2, "LeftClick: toggle state, RightClick: insert preset")
-				a.info(0, h-1, "SPC: pause, Enter: next, c: clear, r: random, h: hide this message")
+				a.setInfo(0, 0, fmt.Sprintf("Cycle: %d", cycle))
+				a.setInfo(0, h-4, fmt.Sprintf("t: switch theme, Current: \"%s\"", a.Theme.Name()))
+				a.setInfo(0, h-3, fmt.Sprintf("p: switch present, Current: \"%s\"", a.Preset.Name()))
+				a.setInfo(0, h-2, "LeftClick: toggle state, RightClick: insert preset")
+				a.setInfo(0, h-1, "SPC: pause, Enter: next, c: clear, r: random, h: hide this message")
 			}
 			a.screen.Show()
 		}
 	}
 }
 
-func toTcellColor(rgb theme.RGB) tcell.Color {
+func rgbTo(rgb life.RGB) tcell.Color {
 	r, g, b := rgb.Color()
 	return tcell.NewRGBColor(int32(r), int32(g), int32(b))
 }
